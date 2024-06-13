@@ -1142,7 +1142,7 @@ static u8 SetUpCopyrightScreen(void)
 
 void CB2_InitCopyrightScreenAfterBootup(void)
 {
-    if (!SetUpCopyrightScreen())
+    if (gMain.state == 0)
     {
         SetSaveBlocksPointers(GetSaveBlocksPointersBaseOffset());
         ResetMenuAndMonGlobals();
@@ -1153,6 +1153,7 @@ void CB2_InitCopyrightScreenAfterBootup(void)
         SetPokemonCryStereo(gSaveBlock2Ptr->optionsSound);
         InitHeap(gHeap, HEAP_SIZE);
     }
+    CB2_InitMainMenu();
 }
 
 void CB2_InitCopyrightScreenAfterTitleScreen(void)
