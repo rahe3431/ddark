@@ -105,7 +105,7 @@ void FreeBattleSpritesData(void)
     FREE_AND_SET_NULL(gBattleSpritesDataPtr);
 }
 
-// Pokémon chooses move to use in Battle Palace rather than player
+// Pokemon chooses move to use in Battle Palace rather than player
 u16 ChooseMoveAndTargetInBattlePalace(void)
 {
     s32 i, var1, var2;
@@ -121,9 +121,9 @@ u16 ChooseMoveAndTargetInBattlePalace(void)
     #define selectedGroup percent
     #define selectedMoves var2
     #define moveTarget var1
-    #define numMovesPerGroup var1
-    #define numMultipleMoveGroups var2
-    #define randSelectGroup var2
+    #define validMoveFlags var1
+    #define numValidMoveGroups var2
+    #define validMoveGroup var2
 
     // If battler is < 50% HP and not asleep, use second set of move group likelihoods
     // otherwise use first set
@@ -157,60 +157,45 @@ u16 ChooseMoveAndTargetInBattlePalace(void)
     // Pass selected moves to AI, pick one
     if (selectedMoves != 0)
     {
-        // Lower 4 bits of palaceFlags are flags for each battler.
-        // Clear the rest of palaceFlags, then set the selected moves in the upper 4 bits.
-        gBattleStruct->palaceFlags &= (1 << MAX_BATTLERS_COUNT) - 1;
-        gBattleStruct->palaceFlags |= (selectedMoves << MAX_BATTLERS_COUNT);
+        gBattleStruct->palaceFlags &= 0xF;
+        gBattleStruct->palaceFlags |= (selectedMoves << 4);
         BattleAI_SetupAIData(selectedMoves);
         chosenMoveId = BattleAI_ChooseMoveOrAction();
     }
 
-    // If no moves matched the selected group, pick a new move from groups the Pokémon has
+    // If no moves matched the selected group, pick a new move from groups the pokemon has
     // In this case the AI is not checked again, so the choice may be worse
     // If a move is chosen this way, there's a 50% chance that it will be unable to use it anyway
     if (chosenMoveId == -1)
     {
-        if (unusableMovesBits != ALL_MOVES_MASK)
+        if (unusableMovesBits != 0xF)
         {
-            numMovesPerGroup = 0, numMultipleMoveGroups = 0;
+            validMoveFlags = 0, numValidMoveGroups = 0;
 
             for (i = 0; i < MAX_MON_MOVES; i++)
             {
-                // Count the number of usable moves the battler has in each move group.
-                // The totals will be stored separately in 3 groups of 4 bits each in numMovesPerGroup.
+                // validMoveFlags is used here as a bitfield for which moves can be used for each move group type
+                // first 4 bits are for attack (1 for each move), then 4 bits for defense, and 4 for support
                 if (GetBattlePalaceMoveGroup(moveInfo->moves[i]) == PALACE_MOVE_GROUP_ATTACK && !(gBitTable[i] & unusableMovesBits))
-                    numMovesPerGroup += (1 << 0);
+                    validMoveFlags += (1 << 0);
                 if (GetBattlePalaceMoveGroup(moveInfo->moves[i]) == PALACE_MOVE_GROUP_DEFENSE && !(gBitTable[i] & unusableMovesBits))
-                    numMovesPerGroup += (1 << 4);
+                    validMoveFlags += (1 << 4);
                 if (GetBattlePalaceMoveGroup(moveInfo->moves[i]) == PALACE_MOVE_GROUP_SUPPORT && !(gBitTable[i] & unusableMovesBits))
-                    numMovesPerGroup += (1 << 8);
+                    validMoveFlags += (1 << 8);
             }
 
-            // Count the number of move groups for which the battler has at least 2 usable moves.
-            // This is a roundabout way to determine if there is a move group that should be
-            // preferred, because it has multiple move options and the others do not.
-            // The condition intended to check the total for the Support group is accidentally
-            // checking the Defense total, and is never true. As a result the preferences for
-            // random move selection here will skew away from the Support move group.
-            if ((numMovesPerGroup & 0xF) >= 2)
-                numMultipleMoveGroups++;
-            if ((numMovesPerGroup & (0xF << 4)) >= (2 << 4))
-                numMultipleMoveGroups++;
-#ifdef BUGFIX
-            if ((numMovesPerGroup & (0xF << 8)) >= (2 << 8))
-#else
-            if ((numMovesPerGroup & (0xF << 4)) >= (2 << 8))
-#endif
-                numMultipleMoveGroups++;
+            // Count the move groups the pokemon has
+            if ((validMoveFlags & 0xF) > 1)
+                numValidMoveGroups++;
+            if ((validMoveFlags & 0xF0) > 0x1F)
+                numValidMoveGroups++;
+            if ((validMoveFlags & 0xF0) > 0x1FF)
+                numValidMoveGroups++;
 
 
-            // By this point we already know the battler only has usable moves from at most 2 of the 3 move groups,
-            // because they had no usable moves from the move group that was selected based on Nature.
-            //
-            // The below condition is effectively 'numMultipleMoveGroups != 1'.
-            // There is no stand-out group with multiple moves to choose from, so we pick randomly.
-            // Note that because of the bug above the battler may actually have any number of Support moves.
-            if (numMultipleMoveGroups > 1 || numMultipleMoveGroups == 0)
+            // If more than 1 possible move group, or no possible move groups
+            // then choose move randomly
+            if (numValidMoveGroups > 1 || numValidMoveGroups == 0)
             {
                 do
                 {
@@ -219,36 +204,27 @@ u16 ChooseMoveAndTargetInBattlePalace(void)
                         chosenMoveId = i;
                 } while (chosenMoveId == -1);
             }
+            // Otherwise randomly choose move of only available move group
             else
             {
-                // The battler has just 1 move group with multiple move options to choose from.
-                // Choose a move randomly from this group.
-
-                // Same bug as the previous set of conditions (the condition for Support is never true).
-                // This bug won't cause a softlock below, because if Support is the only group with multiple
-                // moves then it won't have been counted, and the 'numMultipleMoveGroups == 0' above will be true.
-                if ((numMovesPerGroup & 0xF) >= 2)
-                    randSelectGroup = PALACE_MOVE_GROUP_ATTACK;
-                if ((numMovesPerGroup & (0xF << 4)) >= (2 << 4))
-                    randSelectGroup = PALACE_MOVE_GROUP_DEFENSE;
-#ifdef BUGFIX
-                if ((numMovesPerGroup & (0xF << 8)) >= (2 << 8))
-#else
-                if ((numMovesPerGroup & (0xF << 4)) >= (2 << 8))
-#endif
-                    randSelectGroup = PALACE_MOVE_GROUP_SUPPORT;
+                if ((validMoveFlags & 0xF) > 1)
+                    validMoveGroup = PALACE_MOVE_GROUP_ATTACK;
+                if ((validMoveFlags & 0xF0) > 0x1F)
+                    validMoveGroup = PALACE_MOVE_GROUP_DEFENSE;
+                if ((validMoveFlags & 0xF0) > 0x1FF)
+                    validMoveGroup = PALACE_MOVE_GROUP_SUPPORT;
 
                 do
                 {
                     i = Random() % MAX_MON_MOVES;
-                    if (!(gBitTable[i] & unusableMovesBits) && randSelectGroup == GetBattlePalaceMoveGroup(moveInfo->moves[i]))
+                    if (!(gBitTable[i] & unusableMovesBits) && validMoveGroup == GetBattlePalaceMoveGroup(moveInfo->moves[i]))
                         chosenMoveId = i;
                 } while (chosenMoveId == -1);
             }
 
-            // Because the selected move was not from the Nature-chosen move group there's a 50% chance
-            // that it will be unable to use it. This could have been checked earlier to avoid the above work.
-            if (Random() % 100 >= 50)
+            // If a move was selected (and in this case was not from the Nature-chosen group)
+            // then there's a 50% chance it won't be used anyway
+            if (Random() % 100 > 49)
             {
                 gProtectStructs[gActiveBattler].palaceUnableToUseMove = TRUE;
                 return 0;
@@ -256,7 +232,6 @@ u16 ChooseMoveAndTargetInBattlePalace(void)
         }
         else
         {
-            // All the battler's moves were flagged as unusable.
             gProtectStructs[gActiveBattler].palaceUnableToUseMove = TRUE;
             return 0;
         }
@@ -279,7 +254,7 @@ u16 ChooseMoveAndTargetInBattlePalace(void)
     else if (moveTarget == MOVE_TARGET_SELECTED)
         chosenMoveId |= GetBattlePalaceTarget();
     else
-        chosenMoveId |= (GetBattlerAtPosition(BATTLE_OPPOSITE(GET_BATTLER_SIDE(gActiveBattler))) << 8);
+        chosenMoveId |= (GetBattlerAtPosition((GetBattlerPosition(gActiveBattler) & BIT_SIDE) ^ BIT_SIDE) << 8);
 
     return chosenMoveId;
 }
@@ -289,9 +264,9 @@ u16 ChooseMoveAndTargetInBattlePalace(void)
 #undef selectedGroup
 #undef selectedMoves
 #undef moveTarget
-#undef numMovesPerGroup
-#undef numMultipleMoveGroups
-#undef randSelectGroup
+#undef validMoveFlags
+#undef numValidMoveGroups
+#undef validMoveGroup
 
 static u8 GetBattlePalaceMoveGroup(u16 move)
 {
@@ -335,7 +310,7 @@ static u16 GetBattlePalaceTarget(void)
         }
 
         if (gBattleMons[opposing1].hp == gBattleMons[opposing2].hp)
-            return (BATTLE_OPPOSITE(gActiveBattler & BIT_SIDE) + (Random() & 2)) << 8;
+            return (((gActiveBattler & BIT_SIDE) ^ BIT_SIDE) + (Random() & 2)) << 8;
 
         switch (gBattlePalaceNatureToMoveTarget[GetNatureFromPersonality(gBattleMons[gActiveBattler].personality)])
         {
@@ -350,14 +325,14 @@ static u16 GetBattlePalaceTarget(void)
             else
                 return opposing2 << 8;
         case PALACE_TARGET_RANDOM:
-            return (BATTLE_OPPOSITE(gActiveBattler & BIT_SIDE) + (Random() & 2)) << 8;
+            return (((gActiveBattler & BIT_SIDE) ^ BIT_SIDE) + (Random() & 2)) << 8;
         }
     }
 
-    return BATTLE_OPPOSITE(gActiveBattler) << 8;
+    return (gActiveBattler ^ BIT_SIDE) << 8;
 }
 
-// Wait for the Pokémon to finish appearing out from the Poké Ball on send out
+// Wait for the pokemon to finish appearing out from the pokeball on send out
 void SpriteCB_WaitForBattlerBallReleaseAnim(struct Sprite *sprite)
 {
     u8 spriteId = sprite->data[1];
@@ -378,7 +353,7 @@ void SpriteCB_WaitForBattlerBallReleaseAnim(struct Sprite *sprite)
     }
 }
 
-static void UNUSED UnusedDoBattleSpriteAffineAnim(struct Sprite *sprite, bool8 pointless)
+static void UnusedDoBattleSpriteAffineAnim(struct Sprite *sprite, bool8 pointless)
 {
     sprite->animPaused = TRUE;
     sprite->callback = SpriteCallbackDummy;
@@ -601,7 +576,7 @@ void BattleLoadOpponentMonSpriteGfx(struct Pokemon *mon, u8 battlerId)
                                               gMonSpritesGfxPtr->sprites.ptr[position],
                                               species, currentPersonality);
 
-    paletteOffset = OBJ_PLTT_ID(battlerId);
+    paletteOffset = 0x100 + battlerId * 16;
 
     if (gBattleSpritesDataPtr->battlerData[battlerId].transformSpecies == SPECIES_NONE)
         lzPaletteData = GetMonFrontSpritePal(mon);
@@ -609,21 +584,21 @@ void BattleLoadOpponentMonSpriteGfx(struct Pokemon *mon, u8 battlerId)
         lzPaletteData = GetMonSpritePalFromSpeciesAndPersonality(species, otId, monsPersonality);
 
     LZDecompressWram(lzPaletteData, gDecompressionBuffer);
-    LoadPalette(gDecompressionBuffer, paletteOffset, PLTT_SIZE_4BPP);
-    LoadPalette(gDecompressionBuffer, BG_PLTT_ID(8) + BG_PLTT_ID(battlerId), PLTT_SIZE_4BPP);
+    LoadPalette(gDecompressionBuffer, paletteOffset, 0x20);
+    LoadPalette(gDecompressionBuffer, 0x80 + battlerId * 16, 0x20);
 
     if (species == SPECIES_CASTFORM)
     {
-        paletteOffset = OBJ_PLTT_ID(battlerId);
+        paletteOffset = 0x100 + battlerId * 16;
         LZDecompressWram(lzPaletteData, gBattleStruct->castformPalette);
-        LoadPalette(gBattleStruct->castformPalette[gBattleMonForms[battlerId]], paletteOffset, PLTT_SIZE_4BPP);
+        LoadPalette(gBattleStruct->castformPalette[gBattleMonForms[battlerId]], paletteOffset, 0x20);
     }
 
     // transform's pink color
     if (gBattleSpritesDataPtr->battlerData[battlerId].transformSpecies != SPECIES_NONE)
     {
         BlendPalette(paletteOffset, 16, 6, RGB_WHITE);
-        CpuCopy32(&gPlttBufferFaded[paletteOffset], &gPlttBufferUnfaded[paletteOffset], PLTT_SIZEOF(16));
+        CpuCopy32(gPlttBufferFaded + paletteOffset, gPlttBufferUnfaded + paletteOffset, 32);
     }
 }
 
@@ -664,7 +639,7 @@ void BattleLoadPlayerMonSpriteGfx(struct Pokemon *mon, u8 battlerId)
                                 species, currentPersonality);
     }
 
-    paletteOffset = OBJ_PLTT_ID(battlerId);
+    paletteOffset = 0x100 + battlerId * 16;
 
     if (gBattleSpritesDataPtr->battlerData[battlerId].transformSpecies == SPECIES_NONE)
         lzPaletteData = GetMonFrontSpritePal(mon);
@@ -672,25 +647,26 @@ void BattleLoadPlayerMonSpriteGfx(struct Pokemon *mon, u8 battlerId)
         lzPaletteData = GetMonSpritePalFromSpeciesAndPersonality(species, otId, monsPersonality);
 
     LZDecompressWram(lzPaletteData, gDecompressionBuffer);
-    LoadPalette(gDecompressionBuffer, paletteOffset, PLTT_SIZE_4BPP);
-    LoadPalette(gDecompressionBuffer, BG_PLTT_ID(8) + BG_PLTT_ID(battlerId), PLTT_SIZE_4BPP);
+    LoadPalette(gDecompressionBuffer, paletteOffset, 0x20);
+    LoadPalette(gDecompressionBuffer, 0x80 + battlerId * 16, 0x20);
 
     if (species == SPECIES_CASTFORM)
     {
-        paletteOffset = OBJ_PLTT_ID(battlerId);
+        paletteOffset = 0x100 + battlerId * 16;
         LZDecompressWram(lzPaletteData, gBattleStruct->castformPalette);
-        LoadPalette(gBattleStruct->castformPalette[gBattleMonForms[battlerId]], paletteOffset, PLTT_SIZE_4BPP);
+        LoadPalette(gBattleStruct->castformPalette[gBattleMonForms[battlerId]], paletteOffset, 0x20);
     }
 
     // transform's pink color
     if (gBattleSpritesDataPtr->battlerData[battlerId].transformSpecies != SPECIES_NONE)
     {
         BlendPalette(paletteOffset, 16, 6, RGB_WHITE);
-        CpuCopy32(&gPlttBufferFaded[paletteOffset], &gPlttBufferUnfaded[paletteOffset], PLTT_SIZEOF(16));
+        CpuCopy32(gPlttBufferFaded + paletteOffset, gPlttBufferUnfaded + paletteOffset, 32);
     }
 }
 
-static void UNUSED BattleGfxSfxDummy1(void)
+// Unused
+static void BattleGfxSfxDummy1(void)
 {
 }
 
@@ -714,7 +690,7 @@ void DecompressTrainerBackPic(u16 backPicId, u8 battlerId)
                              gMonSpritesGfxPtr->sprites.ptr[position],
                              SPECIES_NONE);
     LoadCompressedPalette(gTrainerBackPicPaletteTable[backPicId].data,
-                          OBJ_PLTT_ID(battlerId), PLTT_SIZE_4BPP);
+                          0x100 + 16 * battlerId, 0x20);
 }
 
 void BattleGfxSfxDummy3(u8 gender)
@@ -927,13 +903,13 @@ void HandleSpeciesGfxDataChange(u8 battlerAtk, u8 battlerDef, bool8 castform)
     if (castform)
     {
         StartSpriteAnim(&gSprites[gBattlerSpriteIds[battlerAtk]], gBattleSpritesDataPtr->animationData->animArg);
-        paletteOffset = OBJ_PLTT_ID(battlerAtk);
-        LoadPalette(gBattleStruct->castformPalette[gBattleSpritesDataPtr->animationData->animArg], paletteOffset, PLTT_SIZE_4BPP);
+        paletteOffset = 0x100 + battlerAtk * 16;
+        LoadPalette(gBattleStruct->castformPalette[gBattleSpritesDataPtr->animationData->animArg], paletteOffset, 32);
         gBattleMonForms[battlerAtk] = gBattleSpritesDataPtr->animationData->animArg;
         if (gBattleSpritesDataPtr->battlerData[battlerAtk].transformSpecies != SPECIES_NONE)
         {
             BlendPalette(paletteOffset, 16, 6, RGB_WHITE);
-            CpuCopy32(&gPlttBufferFaded[paletteOffset], &gPlttBufferUnfaded[paletteOffset], PLTT_SIZEOF(16));
+            CpuCopy32(gPlttBufferFaded + paletteOffset, gPlttBufferUnfaded + paletteOffset, 32);
         }
         gSprites[gBattlerSpriteIds[battlerAtk]].y = GetBattlerSpriteDefault_Y(battlerAtk);
     }
@@ -989,20 +965,20 @@ void HandleSpeciesGfxDataChange(u8 battlerAtk, u8 battlerDef, bool8 castform)
         src = gMonSpritesGfxPtr->sprites.ptr[position];
         dst = (void *)(OBJ_VRAM0 + gSprites[gBattlerSpriteIds[battlerAtk]].oam.tileNum * 32);
         DmaCopy32(3, src, dst, MON_PIC_SIZE);
-        paletteOffset = OBJ_PLTT_ID(battlerAtk);
+        paletteOffset = 0x100 + battlerAtk * 16;
         lzPaletteData = GetMonSpritePalFromSpeciesAndPersonality(targetSpecies, otId, personalityValue);
         LZDecompressWram(lzPaletteData, gDecompressionBuffer);
-        LoadPalette(gDecompressionBuffer, paletteOffset, PLTT_SIZE_4BPP);
+        LoadPalette(gDecompressionBuffer, paletteOffset, 32);
 
         if (targetSpecies == SPECIES_CASTFORM)
         {
             gSprites[gBattlerSpriteIds[battlerAtk]].anims = gMonFrontAnimsPtrTable[targetSpecies];
             LZDecompressWram(lzPaletteData, gBattleStruct->castformPalette);
-            LoadPalette(gBattleStruct->castformPalette[gBattleMonForms[battlerDef]], paletteOffset, PLTT_SIZE_4BPP);
+            LoadPalette(gBattleStruct->castformPalette[gBattleMonForms[battlerDef]], paletteOffset, 32);
         }
 
         BlendPalette(paletteOffset, 16, 6, RGB_WHITE);
-        CpuCopy32(&gPlttBufferFaded[paletteOffset], &gPlttBufferUnfaded[paletteOffset], PLTT_SIZEOF(16));
+        CpuCopy32(gPlttBufferFaded + paletteOffset, gPlttBufferUnfaded + paletteOffset, 32);
 
         if (!IsContest())
         {
@@ -1038,8 +1014,8 @@ void BattleLoadSubstituteOrMonSpriteGfx(u8 battlerId, bool8 loadMonSprite)
             Dma3CopyLarge32_(gMonSpritesGfxPtr->sprites.ptr[position], &gMonSpritesGfxPtr->sprites.byte[position][MON_PIC_SIZE * i], MON_PIC_SIZE);
         }
 
-        palOffset = OBJ_PLTT_ID(battlerId);
-        LoadCompressedPalette(gSubstituteDollPal, palOffset, PLTT_SIZE_4BPP);
+        palOffset = (battlerId * 16) + 0x100;
+        LoadCompressedPalette(gSubstituteDollPal, palOffset, 32);
     }
     else
     {
@@ -1084,7 +1060,7 @@ void HandleLowHpMusicChange(struct Pokemon *mon, u8 battlerId)
     {
         if (!gBattleSpritesDataPtr->battlerData[battlerId].lowHpSong)
         {
-            if (!gBattleSpritesDataPtr->battlerData[BATTLE_PARTNER(battlerId)].lowHpSong)
+            if (!gBattleSpritesDataPtr->battlerData[battlerId ^ BIT_FLANK].lowHpSong)
                 PlaySE(SE_LOW_HEALTH);
             gBattleSpritesDataPtr->battlerData[battlerId].lowHpSong = 1;
         }
@@ -1097,7 +1073,7 @@ void HandleLowHpMusicChange(struct Pokemon *mon, u8 battlerId)
             m4aSongNumStop(SE_LOW_HEALTH);
             return;
         }
-        if (IsDoubleBattle() && !gBattleSpritesDataPtr->battlerData[BATTLE_PARTNER(battlerId)].lowHpSong)
+        if (IsDoubleBattle() && !gBattleSpritesDataPtr->battlerData[battlerId ^ BIT_FLANK].lowHpSong)
         {
             m4aSongNumStop(SE_LOW_HEALTH);
             return;
@@ -1111,7 +1087,7 @@ void BattleStopLowHpSound(void)
 
     gBattleSpritesDataPtr->battlerData[playerBattler].lowHpSong = 0;
     if (IsDoubleBattle())
-        gBattleSpritesDataPtr->battlerData[BATTLE_PARTNER(playerBattler)].lowHpSong = 0;
+        gBattleSpritesDataPtr->battlerData[playerBattler ^ BIT_FLANK].lowHpSong = 0;
 
     m4aSongNumStop(SE_LOW_HEALTH);
 }

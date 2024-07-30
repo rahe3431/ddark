@@ -15,8 +15,7 @@
 #include "constants/items.h"
 #include "constants/trainer_hill.h"
 
-// Save data using TryWriteSpecialSaveSector is allowed to exceed SECTOR_DATA_SIZE (up to the counter field)
-STATIC_ASSERT(sizeof(struct TrainerHillChallenge) <= SECTOR_COUNTER_OFFSET, TrainerHillChallengeFreeSpace);
+STATIC_ASSERT(sizeof(struct TrainerHillChallenge) <= SECTOR_DATA_SIZE, TrainerHillChallengeFreeSpace);
 
 struct SendRecvMgr
 {
@@ -753,11 +752,11 @@ void EReaderHelper_SerialCallback(void)
     switch (sSendRecvMgr.state)
     {
     case EREADER_XFR_STATE_HANDSHAKE:
-        REG_SIOMLT_SEND = EREADER_HANDSHAKE;
+        REG_SIOMLT_SEND = 0xCCD0; // Handshake id
         *(u64 *)recv = REG_SIOMLT_RECV;
         for (i = 0, cnt1 = 0, cnt2 = 0; i < 4; i++)
         {
-            if (recv[i] == EREADER_HANDSHAKE)
+            if (recv[i] == 0xCCD0)
                 cnt1++;
             else if (recv[i] != 0xFFFF)
                 cnt2++;

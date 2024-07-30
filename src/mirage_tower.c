@@ -8,7 +8,6 @@
 #include "gpu_regs.h"
 #include "menu.h"
 #include "random.h"
-#include "palette.h"
 #include "palette_util.h"
 #include "script.h"
 #include "sound.h"
@@ -75,7 +74,7 @@ static void Task_FossilFallAndSink(u8);
 static void SpriteCB_FallingFossil(struct Sprite *);
 static void UpdateDisintegrationEffect(u8 *, u16, u8, u8, u8);
 
-static const u8 ALIGNED(2) sBlankTile_Gfx[32] = {0};
+static const u8 sBlankTile_Gfx[32] = {0};
 static const u8 sMirageTower_Gfx[] = INCBIN_U8("graphics/misc/mirage_tower.4bpp");
 static const u16 sMirageTowerTilemap[] = INCBIN_U16("graphics/misc/mirage_tower.bin");
 static const u16 sFossil_Pal[] = INCBIN_U16("graphics/object_events/pics/misc/fossil.gbapal"); // Unused
@@ -97,7 +96,7 @@ static const s16 sCeilingCrumblePositions[][3] =
 
 static const struct SpriteSheet sCeilingCrumbleSpriteSheets[] =
 {
-    {sMirageTowerCrumbles_Gfx, sizeof(sMirageTowerCrumbles_Gfx), TAG_CEILING_CRUMBLE},
+    {sMirageTowerCrumbles_Gfx, 0x80, TAG_CEILING_CRUMBLE},
     {}
 };
 
@@ -164,7 +163,7 @@ static const struct SpriteTemplate sSpriteTemplate_FallingFossil =
 
 const struct PulseBlendSettings gMirageTowerPulseBlendSettings = {
     .blendColor = RGB(27, 25, 16),
-    .paletteOffset = BG_PLTT_ID(6) + 1,
+    .paletteOffset = 0x61,
     .numColors = 15,
     .delay = 5,
     .numFadeCycles = -1,
@@ -202,8 +201,7 @@ static const struct OamData sOamData_CeilingCrumbleSmall =
     .affineParam = 0,
 };
 
-static const struct SpriteTemplate sSpriteTemplate_CeilingCrumbleSmall =
-{
+static const struct SpriteTemplate sSpriteTemplate_CeilingCrumbleSmall = {
     .tileTag = TAG_CEILING_CRUMBLE,
     .paletteTag = TAG_NONE,
     .oam = &sOamData_CeilingCrumbleSmall,
@@ -241,8 +239,7 @@ static const struct OamData sOamData_CeilingCrumbleLarge =
     .affineParam = 0,
 };
 
-static const struct SpriteTemplate sSpriteTemplate_CeilingCrumbleLarge =
-{
+static const struct SpriteTemplate sSpriteTemplate_CeilingCrumbleLarge = {
     .tileTag = TAG_CEILING_CRUMBLE,
     .paletteTag = TAG_NONE,
     .oam = &sOamData_CeilingCrumbleLarge,
@@ -364,7 +361,7 @@ static void PlayerDescendMirageTower(u8 taskId)
         (gSprites[player->spriteId].y + gSprites[player->spriteId].y2))
     {
         DestroyTask(taskId);
-        ScriptContext_Enable();
+        EnableBothScriptContexts();
     }
 }
 
@@ -431,7 +428,7 @@ void DoMirageTowerCeilingCrumble(void)
 
 static void WaitCeilingCrumble(u8 taskId)
 {
-    u16 *data = (u16*)gTasks[taskId].data;
+    u16 *data = gTasks[taskId].data;
     data[1]++;
     // Either wait 1000 frames, or until all 16 crumble sprites and the one screen-shake task are completed.
     if (data[1] == 1000 || data[0] == 17)
@@ -442,7 +439,7 @@ static void FinishCeilingCrumbleTask(u8 taskId)
 {
     FreeSpriteTilesByTag(TAG_CEILING_CRUMBLE);
     DestroyTask(taskId);
-    ScriptContext_Enable();
+    EnableBothScriptContexts();
 }
 
 static void CreateCeilingCrumbleSprites(void)
@@ -568,7 +565,7 @@ static void InitMirageTowerShake(u8 taskId)
         sBgShakeOffsets->bgVOFS = zero;
         CreateTask(UpdateBgShake, 10);
         DestroyTask(taskId);
-        ScriptContext_Enable();
+        EnableBothScriptContexts();
         break;
     }
 }
@@ -657,7 +654,7 @@ static void DoMirageTowerDisintegration(u8 taskId)
         break;
     case 8:
         DestroyTask(taskId);
-        ScriptContext_Enable();
+        EnableBothScriptContexts();
         break;
     }
     gTasks[taskId].tState++;
@@ -722,7 +719,7 @@ static void Task_FossilFallAndSink(u8 taskId)
         FREE_AND_SET_NULL(sFallingFossil);
         break;
     case 8:
-        ScriptContext_Enable();
+        EnableBothScriptContexts();
         break;
     }
     gTasks[taskId].tState++;

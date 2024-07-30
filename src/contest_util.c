@@ -319,10 +319,9 @@ static const struct BgTemplate sBgTemplates[] =
     }
 };
 
-// Window IDs are implicitly shared with contestant IDs in LoadContestMonName
-static const struct WindowTemplate sWindowTemplates[CONTESTANT_COUNT + 1] =
+static const struct WindowTemplate sWindowTemplates[] =
 {
-    { // Contestant 1
+    {
         .bg = 1,
         .tilemapLeft = 7,
         .tilemapTop = 4,
@@ -331,7 +330,7 @@ static const struct WindowTemplate sWindowTemplates[CONTESTANT_COUNT + 1] =
         .paletteNum = 15,
         .baseBlock = 770
     },
-    { // Contestant 2
+    {
         .bg = 1,
         .tilemapLeft = 7,
         .tilemapTop = 7,
@@ -340,7 +339,7 @@ static const struct WindowTemplate sWindowTemplates[CONTESTANT_COUNT + 1] =
         .paletteNum = 15,
         .baseBlock = 794
     },
-    { // Contestant 3
+    {
         .bg = 1,
         .tilemapLeft = 7,
         .tilemapTop = 10,
@@ -349,7 +348,7 @@ static const struct WindowTemplate sWindowTemplates[CONTESTANT_COUNT + 1] =
         .paletteNum = 15,
         .baseBlock = 818
     },
-    { // Contestant 4
+    {
         .bg = 1,
         .tilemapLeft = 7,
         .tilemapTop = 13,
@@ -358,7 +357,7 @@ static const struct WindowTemplate sWindowTemplates[CONTESTANT_COUNT + 1] =
         .paletteNum = 15,
         .baseBlock = 842
     },
-    DUMMY_WIN_TEMPLATE
+    DUMMY_WIN_TEMPLATE,
 };
 
 static const struct OamData sOamData_WirelessIndicatorWindow =
@@ -456,8 +455,8 @@ static void LoadContestResultsBgGfx(void)
     CopyToBgTilemapBuffer(2, gContestResults_Interface_Tilemap, 0, 0);
     CopyToBgTilemapBuffer(0, gContestResults_WinnerBanner_Tilemap, 0, 0);
     LoadContestResultsTitleBarTilemaps();
-    LoadCompressedPalette(gContestResults_Pal, BG_PLTT_OFFSET, BG_PLTT_SIZE);
-    LoadPalette(sResultsTextWindow_Pal, BG_PLTT_ID(15), sizeof(sResultsTextWindow_Pal));
+    LoadCompressedPalette(gContestResults_Pal, 0, 0x200);
+    LoadPalette(sResultsTextWindow_Pal, 0xF0, sizeof(sResultsTextWindow_Pal));
 
     for (i = 0; i < CONTESTANT_COUNT; i++)
     {
@@ -1093,9 +1092,9 @@ static void Task_FlashStarsAndHearts(u8 taskId)
         else if (gTasks[taskId].tCoeff == 0)
             gTasks[taskId].tDecreasing = FALSE;
 
-        BlendPalette(BG_PLTT_ID(6) + 11, 1, gTasks[taskId].tCoeff, RGB(30, 22, 11));
-        BlendPalette(BG_PLTT_ID(6) + 8, 1, gTasks[taskId].tCoeff, RGB_WHITE);
-        BlendPalette(BG_PLTT_ID(6) + 14, 1, gTasks[taskId].tCoeff, RGB(30, 29, 29));
+        BlendPalette(0x6B, 1, gTasks[taskId].tCoeff, RGB(30, 22, 11));
+        BlendPalette(0x68, 1, gTasks[taskId].tCoeff, RGB_WHITE);
+        BlendPalette(0x6E, 1, gTasks[taskId].tCoeff, RGB(30, 29, 29));
     }
 
     if (gTasks[taskId].tCoeff == 0)
@@ -1144,7 +1143,7 @@ static void LoadAllContestMonIconPalettes(void)
     for (i = 0; i < CONTESTANT_COUNT; i++)
     {
         species = gContestMons[i].species;
-        LoadPalette(gMonIconPalettes[gMonIconPaletteIndices[GetIconSpecies(species, 0)]], BG_PLTT_ID(10 + i), PLTT_SIZE_4BPP);
+        LoadPalette(gMonIconPalettes[gMonIconPaletteIndices[GetIconSpecies(species, 0)]], i * 0x10 + 0xA0, 0x20);
     }
 }
 
@@ -1168,24 +1167,24 @@ static void TryCreateWirelessSprites(void)
 static s32 DrawResultsTextWindow(const u8 *text, u8 spriteId)
 {
     u16 windowId;
-    int tileWidth;
+    int origWidth;
     int strWidth;
     u8 *spriteTilePtrs[4];
     u8 *dst;
 
     struct WindowTemplate windowTemplate;
     memset(&windowTemplate, 0, sizeof(windowTemplate));
-    windowTemplate.width = DISPLAY_TILE_WIDTH;
+    windowTemplate.width = 30;
     windowTemplate.height = 2;
     windowId = AddWindow(&windowTemplate);
     FillWindowPixelBuffer(windowId, PIXEL_FILL(1));
 
-    strWidth = GetStringWidth(FONT_NORMAL, text, 0);
-    tileWidth = (strWidth + 9) / 8;
-    if (tileWidth > DISPLAY_TILE_WIDTH)
-        tileWidth = DISPLAY_TILE_WIDTH;
+    origWidth = GetStringWidth(FONT_NORMAL, text, 0);
+    strWidth = (origWidth + 9) / 8;
+    if (strWidth > 30)
+     strWidth = 30;
 
-    AddTextPrinterParameterized3(windowId, FONT_NORMAL, (tileWidth * 8 - strWidth) / 2, 1, sContestLinkTextColors, TEXT_SKIP_DRAW, text);
+    AddTextPrinterParameterized3(windowId, FONT_NORMAL, (strWidth * 8 - origWidth) / 2, 1, sContestLinkTextColors, TEXT_SKIP_DRAW, text);
     {
         s32 i;
         struct Sprite *sprite;
@@ -1208,7 +1207,7 @@ static s32 DrawResultsTextWindow(const u8 *text, u8 spriteId)
         CpuCopy32(src + 128, dst + 0x200, 0x20);
         CpuCopy32(src + 64,  dst + 0x300, 0x20);
 
-        for (i = 0; i < tileWidth; i++)
+        for (i = 0; i < strWidth; i++)
         {
             dst = &spriteTilePtrs[(i + 1) / 8][((i + 1) % 8) * 32];
             CpuCopy32(src + 192, dst, 0x20);
@@ -1226,7 +1225,7 @@ static s32 DrawResultsTextWindow(const u8 *text, u8 spriteId)
     }
     RemoveWindow(windowId);
 
-    return (DISPLAY_WIDTH - (tileWidth + 2) * 8) / 2;
+    return (DISPLAY_WIDTH - (strWidth + 2) * 8) / 2;
 }
 
 static void CreateResultsTextWindowSprites(void)
@@ -1562,7 +1561,7 @@ static void Task_HighlightWinnersBox(u8 taskId)
     if (++gTasks[taskId].data[11] == 1)
     {
         gTasks[taskId].data[11] = 0;
-        BlendPalette(BG_PLTT_ID(9) + 1, 1, gTasks[taskId].data[12], RGB(13, 28, 27));
+        BlendPalette(0x91, 1, gTasks[taskId].data[12], RGB(13, 28, 27));
         if (gTasks[taskId].data[13] == 0)
         {
             if (++gTasks[taskId].data[12] == 16)
@@ -2011,7 +2010,7 @@ void GiveMonContestRibbon(void)
     {
     case CONTEST_CATEGORY_COOL:
         ribbonData = GetMonData(&gPlayerParty[gContestMonPartyIndex], MON_DATA_COOL_RIBBON);
-        if (ribbonData <= gSpecialVar_ContestRank && ribbonData <= CONTEST_RANK_MASTER)
+        if (ribbonData <= gSpecialVar_ContestRank && ribbonData < 4)
         {
             ribbonData++;
             SetMonData(&gPlayerParty[gContestMonPartyIndex], MON_DATA_COOL_RIBBON, &ribbonData);
@@ -2021,7 +2020,7 @@ void GiveMonContestRibbon(void)
         break;
     case CONTEST_CATEGORY_BEAUTY:
         ribbonData = GetMonData(&gPlayerParty[gContestMonPartyIndex], MON_DATA_BEAUTY_RIBBON);
-        if (ribbonData <= gSpecialVar_ContestRank && ribbonData <= CONTEST_RANK_MASTER)
+        if (ribbonData <= gSpecialVar_ContestRank && ribbonData < 4)
         {
             ribbonData++;
             SetMonData(&gPlayerParty[gContestMonPartyIndex], MON_DATA_BEAUTY_RIBBON, &ribbonData);
@@ -2031,7 +2030,7 @@ void GiveMonContestRibbon(void)
         break;
     case CONTEST_CATEGORY_CUTE:
         ribbonData = GetMonData(&gPlayerParty[gContestMonPartyIndex], MON_DATA_CUTE_RIBBON);
-        if (ribbonData <= gSpecialVar_ContestRank && ribbonData <= CONTEST_RANK_MASTER)
+        if (ribbonData <= gSpecialVar_ContestRank && ribbonData < 4)
         {
             ribbonData++;
             SetMonData(&gPlayerParty[gContestMonPartyIndex], MON_DATA_CUTE_RIBBON, &ribbonData);
@@ -2041,7 +2040,7 @@ void GiveMonContestRibbon(void)
         break;
     case CONTEST_CATEGORY_SMART:
         ribbonData = GetMonData(&gPlayerParty[gContestMonPartyIndex], MON_DATA_SMART_RIBBON);
-        if (ribbonData <= gSpecialVar_ContestRank && ribbonData <= CONTEST_RANK_MASTER)
+        if (ribbonData <= gSpecialVar_ContestRank && ribbonData < 4)
         {
             ribbonData++;
             SetMonData(&gPlayerParty[gContestMonPartyIndex], MON_DATA_SMART_RIBBON, &ribbonData);
@@ -2051,7 +2050,7 @@ void GiveMonContestRibbon(void)
         break;
     case CONTEST_CATEGORY_TOUGH:
         ribbonData = GetMonData(&gPlayerParty[gContestMonPartyIndex], MON_DATA_TOUGH_RIBBON);
-        if (ribbonData <= gSpecialVar_ContestRank && ribbonData <= CONTEST_RANK_MASTER)
+        if (ribbonData <= gSpecialVar_ContestRank && ribbonData < 4)
         {
             ribbonData++;
             SetMonData(&gPlayerParty[gContestMonPartyIndex], MON_DATA_TOUGH_RIBBON, &ribbonData);
@@ -2130,7 +2129,7 @@ static void Task_StartContest(u8 taskId)
 
 void StartContest(void)
 {
-    LockPlayerFieldControls();
+    ScriptContext2_Enable();
     CreateTask(Task_StartContest, 10);
     BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
 }
@@ -2151,7 +2150,7 @@ static void Task_StartShowContestResults(u8 taskId)
 
 void ShowContestResults(void)
 {
-    LockPlayerFieldControls();
+    ScriptContext2_Enable();
     CreateTask(Task_StartShowContestResults, 10);
     BeginNormalPaletteFade(PALETTES_ALL, 0, 0, 16, RGB_BLACK);
 }
@@ -2164,7 +2163,7 @@ void GetContestPlayerId(void)
 void ContestLinkTransfer(u8 category)
 {
     u8 newTaskId;
-    LockPlayerFieldControls();
+    ScriptContext2_Enable();
     newTaskId = CreateTask(Task_LinkContest_Init, 0);
     SetTaskFuncWithFollowupFunc(newTaskId, Task_LinkContest_Init, Task_StartCommunication);
     gTasks[newTaskId].data[9] = category;
@@ -2266,8 +2265,8 @@ void Task_LinkContest_FinalizeConnection(u8 taskId)
 
         DestroyTask(taskId);
         SetDynamicWarp(0, gSaveBlock1Ptr->location.mapGroup, gSaveBlock1Ptr->location.mapNum, WARP_ID_NONE);
-        UnlockPlayerFieldControls();
-        ScriptContext_Enable();
+        ScriptContext2_Disable();
+        EnableBothScriptContexts();
     }
 }
 
@@ -2282,8 +2281,8 @@ static void Task_LinkContest_WaitDisconnect(u8 taskId)
     if (!gReceivedRemoteLinkPlayers)
     {
         DestroyTask(taskId);
-        UnlockPlayerFieldControls();
-        ScriptContext_Enable();
+        ScriptContext2_Disable();
+        EnableBothScriptContexts();
     }
 }
 
@@ -2526,16 +2525,16 @@ void LoadLinkContestPlayerPalettes(void)
             if (version == VERSION_RUBY || version == VERSION_SAPPHIRE)
             {
                 if (gLinkPlayers[i].gender == MALE)
-                    LoadPalette(gObjectEventPal_RubySapphireBrendan, OBJ_PLTT_ID(6 + i), PLTT_SIZE_4BPP);
+                    LoadPalette(gObjectEventPal_RubySapphireBrendan, 0x160 + i * 0x10, 0x20);
                 else
-                    LoadPalette(gObjectEventPal_RubySapphireMay, OBJ_PLTT_ID(6 + i), PLTT_SIZE_4BPP);
+                    LoadPalette(gObjectEventPal_RubySapphireMay, 0x160 + i * 0x10, 0x20);
             }
             else
             {
                 if (gLinkPlayers[i].gender == MALE)
-                    LoadPalette(gObjectEventPal_Brendan, OBJ_PLTT_ID(6 + i), PLTT_SIZE_4BPP);
+                    LoadPalette(gObjectEventPal_Brendan, 0x160 + i * 0x10, 0x20);
                 else
-                    LoadPalette(gObjectEventPal_May, OBJ_PLTT_ID(6 + i), PLTT_SIZE_4BPP);
+                    LoadPalette(gObjectEventPal_May, 0x160 + i * 0x10, 0x20);
             }
         }
     }
@@ -2727,7 +2726,7 @@ static void Task_LinkContestWaitForConnection(u8 taskId)
     default:
         if (IsLinkTaskFinished() == 1)
         {
-            ScriptContext_Enable();
+            EnableBothScriptContexts();
             DestroyTask(taskId);
         }
         break;

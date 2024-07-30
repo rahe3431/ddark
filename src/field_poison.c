@@ -19,7 +19,7 @@
 
 static bool32 IsMonValidSpecies(struct Pokemon *pokemon)
 {
-    u16 species = GetMonData(pokemon, MON_DATA_SPECIES_OR_EGG);
+    u16 species = GetMonData(pokemon, MON_DATA_SPECIES2);
     if (species == SPECIES_NONE || species == SPECIES_EGG)
         return FALSE;
 
@@ -67,40 +67,40 @@ static void Task_TryFieldPoisonWhiteOut(u8 taskId)
     s16 *data = gTasks[taskId].data;
     switch (tState)
     {
-    case 0:
-        for (; tPartyIdx < PARTY_SIZE; tPartyIdx++)
-        {
-            if (MonFaintedFromPoison(tPartyIdx))
+        case 0:
+            for (; tPartyIdx < PARTY_SIZE; tPartyIdx++)
             {
-                FaintFromFieldPoison(tPartyIdx);
-                ShowFieldMessage(gText_PkmnFainted_FldPsn);
-                tState++;
-                return;
+                if (MonFaintedFromPoison(tPartyIdx))
+                {
+                    FaintFromFieldPoison(tPartyIdx);
+                    ShowFieldMessage(gText_PkmnFainted_FldPsn);
+                    tState++;
+                    return;
+                }
             }
-        }
-        tState = 2; // Finished checking party
-        break;
-    case 1:
-        // Wait for "{mon} fainted" message, then return to party loop
-        if (IsFieldMessageBoxHidden())
-            tState--;
-        break;
-    case 2:
-        if (AllMonsFainted())
-        {
-            // Battle facilities have their own white out script to handle the challenge loss
-            if (InBattlePyramid() | InBattlePike() || InTrainerHillChallenge())
-                gSpecialVar_Result = FLDPSN_FRONTIER_WHITEOUT;
+            tState = 2; // Finished checking party
+            break;
+        case 1:
+            // Wait for "{mon} fainted" message, then return to party loop
+            if (IsFieldMessageBoxHidden())
+                tState--;
+            break;
+        case 2:
+            if (AllMonsFainted())
+            {
+                // Battle facilities have their own white out script to handle the challenge loss
+                if (InBattlePyramid() | InBattlePike() || InTrainerHillChallenge())
+                    gSpecialVar_Result = FLDPSN_FRONTIER_WHITEOUT;
+                else
+                    gSpecialVar_Result = FLDPSN_WHITEOUT;
+            }
             else
-                gSpecialVar_Result = FLDPSN_WHITEOUT;
-        }
-        else
-        {
-            gSpecialVar_Result = FLDPSN_NO_WHITEOUT;
-        }
-        ScriptContext_Enable();
-        DestroyTask(taskId);
-        break;
+            {
+                gSpecialVar_Result = FLDPSN_NO_WHITEOUT;
+            }
+            EnableBothScriptContexts();
+            DestroyTask(taskId);
+            break;
     }
 }
 
@@ -110,7 +110,7 @@ static void Task_TryFieldPoisonWhiteOut(u8 taskId)
 void TryFieldPoisonWhiteOut(void)
 {
     CreateTask(Task_TryFieldPoisonWhiteOut, 80);
-    ScriptContext_Stop();
+    ScriptContext1_Stop();
 }
 
 s32 DoPoisonFieldEffect(void)

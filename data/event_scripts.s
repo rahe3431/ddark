@@ -1,4 +1,3 @@
-#include "config.h"
 #include "constants/global.h"
 #include "constants/apprentice.h"
 #include "constants/battle.h"

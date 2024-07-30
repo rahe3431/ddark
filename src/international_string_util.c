@@ -76,7 +76,10 @@ int Intl_GetListMenuWidth(const struct ListMenuTemplate *listMenu)
     }
 
     finalWidth = maxWidth + listMenu->item_X + 9;
-    finalWidth /= 8;
+    if (finalWidth < 0)
+        finalWidth += 7;
+
+    finalWidth >>= 3;
     if (finalWidth > 28)
         finalWidth = 28;
 
@@ -130,7 +133,7 @@ void PadNameString(u8 *dest, u8 padChar)
         while (length < PLAYER_NAME_LENGTH - 1)
         {
             dest[length] = EXT_CTRL_CODE_BEGIN;
-            dest[length + 1] = EXT_CTRL_CODE_RESET_FONT;
+            dest[length + 1] = EXT_CTRL_CODE_RESET_SIZE;
             length += 2;
         }
     }

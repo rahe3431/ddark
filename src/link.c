@@ -28,13 +28,6 @@
 #include "constants/rgb.h"
 #include "constants/trade.h"
 
-// Window IDs for the link error screens
-enum {
-    WIN_LINK_ERROR_TOP,
-    WIN_LINK_ERROR_MID,
-    WIN_LINK_ERROR_BOTTOM,
-};
-
 struct BlockTransfer
 {
     u16 pos;
@@ -78,7 +71,7 @@ bool8 gRemoteLinkPlayersNotReceived[MAX_LINK_PLAYERS];
 u8 gBlockReceivedStatus[MAX_LINK_PLAYERS];
 u32 gLinkFiller2;
 u16 gLinkHeldKeys;
-u16 ALIGNED(4) gRecvCmds[MAX_RFU_PLAYERS][CMD_LENGTH];
+u16 gRecvCmds[MAX_RFU_PLAYERS][CMD_LENGTH];
 u32 gLinkStatus;
 bool8 gLinkDummy1; // Never read
 bool8 gLinkDummy2; // Never read
@@ -200,31 +193,28 @@ static const struct BgTemplate sLinkErrorBgTemplates[] = {
         .priority = 1
     }
 };
-
 static const struct WindowTemplate sLinkErrorWindowTemplates[] = {
-    [WIN_LINK_ERROR_TOP] = {
+    {
         .bg = 0,
         .tilemapLeft = 0,
         .tilemapTop = 0,
-        .width = DISPLAY_TILE_WIDTH,
+        .width = 30,
         .height = 5,
         .paletteNum = 15,
         .baseBlock = 0x002
-    },
-    [WIN_LINK_ERROR_MID] = {
+    }, {
         .bg = 0,
         .tilemapLeft = 0,
         .tilemapTop = 6,
-        .width = DISPLAY_TILE_WIDTH,
+        .width = 30,
         .height = 7,
         .paletteNum = 15,
         .baseBlock = 0x098
-    },
-    [WIN_LINK_ERROR_BOTTOM] = {
+    }, {
         .bg = 0,
         .tilemapLeft = 0,
         .tilemapTop = 13,
-        .width = DISPLAY_TILE_WIDTH,
+        .width = 30,
         .height = 7,
         .paletteNum = 15,
         .baseBlock = 0x16A
@@ -257,7 +247,7 @@ void Task_DestroySelf(u8 taskId)
 
 static void InitLinkTestBG(u8 paletteNum, u8 bgNum, u8 screenBaseBlock, u8 charBaseBlock, u16 baseChar)
 {
-    LoadPalette(sLinkTestDigitsPal, BG_PLTT_ID(paletteNum), PLTT_SIZE_4BPP);
+    LoadPalette(sLinkTestDigitsPal, paletteNum * 16, 0x20);
     DmaCopy16(3, sLinkTestDigitsGfx, (u16 *)BG_CHAR_ADDR(charBaseBlock) + (16 * baseChar), sizeof sLinkTestDigitsGfx);
     gLinkTestBGInfo.screenBaseBlock = screenBaseBlock;
     gLinkTestBGInfo.paletteNum = paletteNum;
@@ -278,9 +268,10 @@ static void InitLinkTestBG(u8 paletteNum, u8 bgNum, u8 screenBaseBlock, u8 charB
     SetGpuReg(REG_OFFSET_BG0VOFS + bgNum * 4, 0);
 }
 
-static void UNUSED LoadLinkTestBgGfx(u8 paletteNum, u8 bgNum, u8 screenBaseBlock, u8 charBaseBlock)
+// Unused
+static void LoadLinkTestBgGfx(u8 paletteNum, u8 bgNum, u8 screenBaseBlock, u8 charBaseBlock)
 {
-    LoadPalette(sLinkTestDigitsPal, BG_PLTT_ID(paletteNum), PLTT_SIZE_4BPP);
+    LoadPalette(sLinkTestDigitsPal, paletteNum * 16, 0x20);
     DmaCopy16(3, sLinkTestDigitsGfx, (u16 *)BG_CHAR_ADDR(charBaseBlock), sizeof sLinkTestDigitsGfx);
     gLinkTestBGInfo.screenBaseBlock = screenBaseBlock;
     gLinkTestBGInfo.paletteNum = paletteNum;
@@ -288,7 +279,8 @@ static void UNUSED LoadLinkTestBgGfx(u8 paletteNum, u8 bgNum, u8 screenBaseBlock
     SetGpuReg(sBGControlRegs[bgNum], BGCNT_SCREENBASE(screenBaseBlock) | BGCNT_CHARBASE(charBaseBlock));
 }
 
-static void UNUSED LinkTestScreen(void)
+// Unused
+static void LinkTestScreen(void)
 {
     int i;
 
@@ -777,7 +769,8 @@ u32 LinkDummy_Return2(void)
     return 2;
 }
 
-static bool32 UNUSED IsFullLinkGroupWithNoRS(void)
+// Unused
+static bool32 IsFullLinkGroupWithNoRS(void)
 {
     if (GetLinkPlayerCount() != MAX_LINK_PLAYERS || AreAnyLinkPlayersUsingVersions(VERSION_RUBY, VERSION_SAPPHIRE) < 0)
     {
@@ -1009,12 +1002,14 @@ void SetBerryBlenderLinkCallback(void)
         gLinkCallback = LinkCB_BerryBlenderSendHeldKeys;
 }
 
-static u32 UNUSED GetBerryBlenderKeySendAttempts(void)
+// Unused
+static u32 GetBerryBlenderKeySendAttempts(void)
 {
     return gBerryBlenderKeySendAttempts;
 }
 
-static void UNUSED SendBerryBlenderNoSpaceForPokeblocks(void)
+// Unused
+static void SendBerryBlenderNoSpaceForPokeblocks(void)
 {
     BuildSendCmd(LINKCMD_BLENDER_NO_PBLOCK_SPACE);
 }
@@ -1160,7 +1155,7 @@ static void LinkTest_PrintHex(u32 num, u8 x, u8 y, u8 length)
     }
 }
 
-static void UNUSED LinkTest_PrintInt(int num, u8 x, u8 y, u8 length)
+static void LinkTest_PrintInt(int num, u8 x, u8 y, u8 length)
 {
     char buff[16];
     int negX;
@@ -1292,7 +1287,8 @@ u8 GetSavedPlayerCount(void)
     return gSavedLinkPlayerCount;
 }
 
-static u8 UNUSED GetSavedMultiplayerId(void)
+// Unused
+static u8 GetSavedMultiplayerId(void)
 {
     return gSavedMultiplayerId;
 }
@@ -1329,13 +1325,13 @@ bool8 DoesLinkPlayerCountMatchSaved(void)
 
 void ClearSavedLinkPlayers(void)
 {
+    int i;
     // The CpuSet loop below is incorrectly writing to NULL
     // instead of sSavedLinkPlayers.
     // Additionally it's using the wrong array size.
 #ifdef UBFIX
     memset(sSavedLinkPlayers, 0, sizeof(sSavedLinkPlayers));
 #else
-    int i;
     for (i = 0; i < MAX_LINK_PLAYERS; i++)
         CpuSet(&sSavedLinkPlayers[i], NULL, sizeof(struct LinkPlayer));
 #endif
@@ -1376,7 +1372,8 @@ bool8 IsLinkMaster(void)
     return EXTRACT_MASTER(gLinkStatus);
 }
 
-static u8 UNUSED GetDummy2(void)
+// Unused
+static u8 GetDummy2(void)
 {
     return sDummy2;
 }
@@ -1598,7 +1595,7 @@ void CB2_LinkError(void)
     ResetSpriteData();
     FreeAllSpritePalettes();
     ResetPaletteFadeControl();
-    SetBackdropFromColor(RGB_BLACK);
+    FillPalette(RGB_BLACK, 0, 2);
     ResetTasks();
     ScanlineEffect_Stop();
     if (gWirelessCommType)
@@ -1611,7 +1608,7 @@ void CB2_LinkError(void)
     SetVBlankCallback(VBlankCB_LinkError);
     ResetBgsAndClearDma3BusyFlags(0);
     InitBgsFromTemplates(0, sLinkErrorBgTemplates, ARRAY_COUNT(sLinkErrorBgTemplates));
-    sLinkErrorBgTilemapBuffer = tilemapBuffer = Alloc(BG_SCREEN_SIZE);
+    sLinkErrorBgTilemapBuffer = tilemapBuffer = malloc(BG_SCREEN_SIZE);
     SetBgTilemapBuffer(1, tilemapBuffer);
     if (InitWindows(sLinkErrorWindowTemplates))
     {
@@ -1624,7 +1621,7 @@ void CB2_LinkError(void)
         SetGpuReg(REG_OFFSET_BG1HOFS, 0);
         SetGpuReg(REG_OFFSET_BG1VOFS, 0);
         ClearGpuRegBits(REG_OFFSET_DISPCNT, DISPCNT_WIN0_ON | DISPCNT_WIN1_ON | DISPCNT_OBJWIN_ON);
-        LoadPalette(gStandardMenuPalette, BG_PLTT_ID(15), PLTT_SIZE_4BPP);
+        LoadPalette(gStandardMenuPalette, 0xf0, 0x20);
         gSoftResetDisabled = FALSE;
         CreateTask(Task_DestroySelf, 0);
         StopMapMusic();
@@ -1643,27 +1640,27 @@ static void ErrorMsg_MoveCloserToPartner(void)
     DecompressAndLoadBgGfxUsingHeap(1, sWirelessLinkDisplayGfx, FALSE, 0, 0);
     CopyToBgTilemapBuffer(1, sWirelessLinkDisplayTilemap, 0, 0);
     CopyBgTilemapBufferToVram(1);
-    LoadPalette(sWirelessLinkDisplayPal, BG_PLTT_ID(0), sizeof(sWirelessLinkDisplayPal));
-    FillWindowPixelBuffer(WIN_LINK_ERROR_TOP, PIXEL_FILL(0));
-    FillWindowPixelBuffer(WIN_LINK_ERROR_BOTTOM, PIXEL_FILL(0));
-    AddTextPrinterParameterized3(WIN_LINK_ERROR_TOP, FONT_SHORT_COPY_1, 2, 6, sTextColors, 0, gText_CommErrorEllipsis);
-    AddTextPrinterParameterized3(WIN_LINK_ERROR_BOTTOM, FONT_SHORT_COPY_1, 2, 1, sTextColors, 0, gText_MoveCloserToLinkPartner);
-    PutWindowTilemap(WIN_LINK_ERROR_TOP);
-    PutWindowTilemap(WIN_LINK_ERROR_BOTTOM);
-    CopyWindowToVram(WIN_LINK_ERROR_TOP, COPYWIN_NONE); // Does nothing
-    CopyWindowToVram(WIN_LINK_ERROR_BOTTOM, COPYWIN_FULL);
+    LoadPalette(sWirelessLinkDisplayPal, 0, 0x20);
+    FillWindowPixelBuffer(0, PIXEL_FILL(0));
+    FillWindowPixelBuffer(2, PIXEL_FILL(0));
+    AddTextPrinterParameterized3(0, FONT_SHORT_COPY_1, 2, 6, sTextColors, 0, gText_CommErrorEllipsis);
+    AddTextPrinterParameterized3(2, FONT_SHORT_COPY_1, 2, 1, sTextColors, 0, gText_MoveCloserToLinkPartner);
+    PutWindowTilemap(0);
+    PutWindowTilemap(2);
+    CopyWindowToVram(0, COPYWIN_NONE); // Does nothing
+    CopyWindowToVram(2, COPYWIN_FULL);
 }
 
 static void ErrorMsg_CheckConnections(void)
 {
     LoadBgTiles(0, sCommErrorBg_Gfx, 0x20, 0);
-    FillWindowPixelBuffer(WIN_LINK_ERROR_MID, PIXEL_FILL(0));
-    FillWindowPixelBuffer(WIN_LINK_ERROR_BOTTOM, PIXEL_FILL(0));
-    AddTextPrinterParameterized3(WIN_LINK_ERROR_MID, FONT_SHORT_COPY_1, 2, 0, sTextColors, 0, gText_CommErrorCheckConnections);
-    PutWindowTilemap(WIN_LINK_ERROR_MID);
-    PutWindowTilemap(WIN_LINK_ERROR_BOTTOM);
-    CopyWindowToVram(WIN_LINK_ERROR_MID, COPYWIN_NONE); // Does nothing
-    CopyWindowToVram(WIN_LINK_ERROR_BOTTOM, COPYWIN_FULL);
+    FillWindowPixelBuffer(1, PIXEL_FILL(0));
+    FillWindowPixelBuffer(2, PIXEL_FILL(0));
+    AddTextPrinterParameterized3(1, FONT_SHORT_COPY_1, 2, 0, sTextColors, 0, gText_CommErrorCheckConnections);
+    PutWindowTilemap(1);
+    PutWindowTilemap(2);
+    CopyWindowToVram(1, COPYWIN_NONE); // Does nothing
+    CopyWindowToVram(2, COPYWIN_FULL);
 }
 
 static void CB2_PrintErrorMessage(void)
@@ -1694,9 +1691,9 @@ static void CB2_PrintErrorMessage(void)
             break;
         case 130:
             if (gWirelessCommType == 2)
-                AddTextPrinterParameterized3(WIN_LINK_ERROR_TOP, FONT_SHORT_COPY_1, 2, 20, sTextColors, 0, gText_ABtnTitleScreen);
+                AddTextPrinterParameterized3(0, FONT_SHORT_COPY_1, 2, 20, sTextColors, 0, gText_ABtnTitleScreen);
             else if (gWirelessCommType == 1)
-                AddTextPrinterParameterized3(WIN_LINK_ERROR_TOP, FONT_SHORT_COPY_1, 2, 20, sTextColors, 0, gText_ABtnRegistrationCounter);
+                AddTextPrinterParameterized3(0, FONT_SHORT_COPY_1, 2, 20, sTextColors, 0, gText_ABtnRegistrationCounter);
             break;
     }
     if (gMain.state == 160)
