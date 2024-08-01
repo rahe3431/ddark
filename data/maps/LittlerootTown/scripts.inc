@@ -2,7 +2,7 @@
 .set LOCALID_MOM, 4
 .set LOCALID_RIVAL, 7
 .set LOCALID_BIRCH, 8
-.set LOCALID_ANABEL, 9
+.set LOCALID_ANABEL, 2
 
 LittlerootTown_MapScripts::
 	map_script MAP_SCRIPT_ON_TRANSITION, LittlerootTown_OnTransition
@@ -254,7 +254,7 @@ LittlerootTown_EventScript_FatMan::
 LittlerootTown_EventScript_Boy::
 	lock
     faceplayer
-    setfollower 3 0x100   @ cause NPC (local ID = 3) to follow you with a custom following script
+    setfollower 1 0x100   @ cause NPC (local ID = 3) to follow you with a custom following script
     release
 	end
 
