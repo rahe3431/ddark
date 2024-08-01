@@ -257,6 +257,12 @@ LittlerootTown_EventScript_Boy::
     release
 	end
 
+LittlerootTown_EventScript_Fart::
+	addobject LOCALID_ANABEL
+	clearflag FLAG_HIDE_LITTLEROOT_TOWN_FART
+	release
+	end
+
 LittlerootTown_EventScript_Twin::
 	lock
 	faceplayer
