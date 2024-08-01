@@ -251,7 +251,10 @@ LittlerootTown_EventScript_FatMan::
 	end
 
 LittlerootTown_EventScript_Boy::
-	msgbox LittlerootTown_Text_BirchSpendsDaysInLab, MSGBOX_NPC
+	lock
+    faceplayer
+    setfollower 3 0x100   @ cause NPC (local ID = 3) to follow you with a custom following script
+    release
 	end
 
 LittlerootTown_EventScript_Twin::
@@ -1018,3 +1021,4 @@ LittlerootTown_Text_BirchSomethingToShowYouAtLab:
 	.string "I gave you?\p"
 	.string "I have something to show you.\n"
 	.string "Let's go to my LAB.$"
+

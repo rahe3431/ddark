@@ -1278,17 +1278,16 @@ static void Task_NewGameBirchSpeech_Init(u8 taskId)
     gSaveBlock2Ptr->playerGender = FEMALE;
     NewGameBirchSpeech_SetDefaultPlayerName(Random() % NUM_PRESET_NAMES);
 
-
-   /* LZ77UnCompVram(sBirchSpeechShadowGfx, (void *)VRAM);
-    LZ77UnCompVram(sBirchSpeechBgMap, (void *)(BG_SCREEN_ADDR(7)));
-    LoadPalette(sBirchSpeechBgPals, BG_PLTT_ID(0), 2 * PLTT_SIZE_4BPP);
-   */ LoadPalette(sBirchSpeechPlatformBlackPal, BG_PLTT_ID(0) + 1, PLTT_SIZEOF(8));
+    //LZ77UnCompVram(sBirchSpeechShadowGfx, (void *)VRAM);
+    //LZ77UnCompVram(sBirchSpeechBgMap, (void *)(BG_SCREEN_ADDR(7)));
+    //LoadPalette(sBirchSpeechBgPals, BG_PLTT_ID(0), 2 * PLTT_SIZE_4BPP);
+    //LoadPalette(sBirchSpeechPlatformBlackPal, BG_PLTT_ID(0) + 1, PLTT_SIZEOF(8));
     ScanlineEffect_Stop();
     ResetSpriteData();
     FreeAllSpritePalettes();
     ResetAllPicSprites();
- /*   AddBirchSpeechObjects(taskId);
-    BeginNormalPaletteFade(PALETTES_ALL, 0, 16, 0, RGB_BLACK);*/
+    //AddBirchSpeechObjects(taskId);
+    //BeginNormalPaletteFade(PALETTES_ALL, 0, 16, 0, RGB_BLACK);
     gTasks[taskId].tBG1HOFS = 0;
     gTasks[taskId].func = Task_NewGameBirchSpeech_FadePlayerToWhite;
     gTasks[taskId].tPlayerSpriteId = SPRITE_NONE;
