@@ -1115,11 +1115,11 @@ static void UpdateBobbingEffect(struct ObjectEvent *playerObj, struct Sprite *pl
     {
         // Update vertical position of surf blob
         if (((u16)(++sprite->sTimer) & intervals[sprite->sIntervalIdx]) == 0)
-            sprite->y2 += sprite->sVelocity;
+            sprite->y2 = sprite->sVelocity;
 
         // Reverse bob direction
         if ((sprite->sTimer & 15) == 0)
-            sprite->sVelocity = -sprite->sVelocity;
+            sprite->sVelocity = sprite->sVelocity;
 
         if (bobState != BOB_JUST_MON)
         {

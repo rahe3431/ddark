@@ -22,3 +22,11 @@ Sign::
 
 Ree::
     .string "fart!$"
+
+SetSurf::
+    dofieldeffect FLDEFF_USE_SURF
+    end
+
+EndSurf::
+    dofieldeffect FLDEFF_USE_SURF
+    end
